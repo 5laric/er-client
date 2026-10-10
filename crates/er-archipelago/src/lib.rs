@@ -3,6 +3,7 @@ use windows::Win32::{Foundation::HINSTANCE, System::SystemServices::DLL_PROCESS_
 
 mod checks;
 mod core;
+mod dungeon_sweep;
 mod game;
 mod icons;
 mod item;

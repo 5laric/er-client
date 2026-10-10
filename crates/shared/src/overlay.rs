@@ -34,6 +34,56 @@ const CYAN: ImColor32 = ImColor32::from_rgb(0x34, 0xE2, 0xE2);
 /// Treat small scroll/layout drift as still being at the bottom of the log.
 const LOG_SCROLL_BOTTOM_TOLERANCE: f32 = 48.0;
 
+/// File (in the mod's directory) where the overlay's own UI settings are kept
+/// between sessions. Plain `key=value` lines, so it needs no extra dependencies.
+const OVERLAY_SETTINGS_FILE: &str = "overlay_settings.txt";
+
+const DEFAULT_FONT_SCALE: f32 = 1.8;
+const DEFAULT_UNFOCUSED_OPACITY: f32 = 0.4;
+
+fn overlay_settings_path() -> Option<std::path::PathBuf> {
+    let dir = crate::utils::mod_directory().ok()?;
+    Some(dir.join(OVERLAY_SETTINGS_FILE))
+}
+
+/// Reads the saved font scale and unfocused opacity, if any. Missing or
+/// malformed values are returned as `None` so the defaults get used.
+fn load_overlay_settings() -> (Option<f32>, Option<f32>) {
+    let mut font_scale = None;
+    let mut opacity = None;
+    let Some(text) = overlay_settings_path().and_then(|p| std::fs::read_to_string(p).ok())
+    else {
+        return (font_scale, opacity);
+    };
+    for line in text.lines() {
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        let Ok(value) = value.trim().parse::<f32>() else {
+            continue;
+        };
+        if !value.is_finite() {
+            continue;
+        }
+        match key.trim() {
+            "font_scale" => font_scale = Some(value.clamp(0.5, 4.0)),
+            "unfocused_window_opacity" => opacity = Some(value.clamp(0.0, 1.0)),
+            _ => {}
+        }
+    }
+    (font_scale, opacity)
+}
+
+fn save_overlay_settings(font_scale: f32, opacity: f32) {
+    let Some(path) = overlay_settings_path() else {
+        return;
+    };
+    let text = format!("font_scale={font_scale}\nunfocused_window_opacity={opacity}\n");
+    if let Err(e) = std::fs::write(&path, text) {
+        error!("Failed to save overlay settings to {path:?}: {e}");
+    }
+}
+
 /// The visual overlay that appears on top of the game.
 pub struct Overlay<G: Game> {
     /// The last-known size of the viewport. This is only set once hudhook has
@@ -104,9 +154,10 @@ unsafe impl<G: Game> Sync for Overlay<G> {}
 impl<G: Game> Overlay<G> {
     /// Creates a new instance of the overlay and the core mod logic.
     pub fn new() -> Self {
+        let (saved_font_scale, saved_opacity) = load_overlay_settings();
         Self {
-            font_scale: 1.8,
-            unfocused_window_opacity: 0.4,
+            font_scale: saved_font_scale.unwrap_or(DEFAULT_FONT_SCALE),
+            unfocused_window_opacity: saved_opacity.unwrap_or(DEFAULT_UNFOCUSED_OPACITY),
             was_compact_mode: true,
 
             // Default values. We can't use [Default::default] because G doesn't
@@ -349,6 +400,11 @@ impl<G: Game> Overlay<G> {
             });
     }
 
+    /// Writes the font scale and unfocused opacity to disk.
+    fn save_settings(&self) {
+        save_overlay_settings(self.font_scale, self.unfocused_window_opacity);
+    }
+
     /// Renders the menu bar.
     fn render_menu_bar(&mut self, ui: &Ui) {
         ui.menu_bar(|| {
@@ -377,10 +433,12 @@ impl<G: Game> Overlay<G> {
                 ui.same_line();
                 if ui.button("-##font-size-decrease-button") {
                     self.font_scale = (self.font_scale - 0.1).max(0.5);
+                    self.save_settings();
                 }
                 ui.same_line();
                 if ui.button("+##font-size-increase-button") {
                     self.font_scale = (self.font_scale + 0.1).min(4.0);
+                    self.save_settings();
                 }
 
                 let mut opacity_percent = (self.unfocused_window_opacity * 100.0).round() as i32;
@@ -391,6 +449,11 @@ impl<G: Game> Overlay<G> {
                     .display_format("%d%%")
                     .build(&mut opacity_percent);
                 self.unfocused_window_opacity = (opacity_percent as f32) / 100.0;
+                // Only write to disk once the slider is let go, not every frame
+                // while it's being dragged.
+                if ui.is_item_deactivated_after_edit() {
+                    self.save_settings();
+                }
 
                 if G::SUPPORTS_ITEM_POPUP_SETTING {
                     let mut show_item_popups = core.base().show_item_popups();

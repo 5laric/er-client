@@ -14,6 +14,7 @@ use regex_macro::regex;
 
 use crate::checks;
 use crate::checks::{LocationFlagChanges, LocationFlagMapping};
+use crate::dungeon_sweep::DungeonSweep;
 use crate::item::{ItemIdExt, RegulationManager};
 use crate::save_data::*;
 use crate::slot_data::{EventFlagId, I64Key, SlotData};
@@ -185,6 +186,11 @@ pub struct Core {
     /// scout. Locations with another player's item aren't listed, so those stay
     /// placeholders.
     local_location_items: Option<HashMap<i64, i64>>,
+
+    /// Dungeon Sweep state, and the [SaveData::menu_returns] it last saw so it
+    /// starts over when a different save is loaded.
+    dungeon_sweep: DungeonSweep,
+    dungeon_sweep_menu_returns: u32,
 }
 
 /// Interactive state for allowing processing or not.
@@ -234,6 +240,8 @@ impl shared::Core for Core {
             local_item_scout: None,
             local_item_scout_requested: None,
             local_location_items: None,
+            dungeon_sweep: DungeonSweep::default(),
+            dungeon_sweep_menu_returns: 0,
         })
     }
 
@@ -387,6 +395,41 @@ impl shared::Core for Core {
 
                 true
             },
+
+            "!sweep" => {
+                // No argument toggles; `on` / `off` set it explicitly.
+                let target = match arg.map(|a| a.trim().to_ascii_lowercase()).as_deref() {
+                    None | Some("") => !self.dungeon_sweep_enabled(),
+                    Some("on") => true,
+                    Some("off") => false,
+                    Some(_) => {
+                        self.log(vec![
+                            RichText::Color {
+                                text: "Invalid !sweep.".into(),
+                                color: ap::TextColor::Red,
+                            },
+                            " Usage:\n".into(),
+                            "!sweep [on|off]".into(),
+                        ]);
+                        return true;
+                    }
+                };
+                self.dungeon_sweep.set_override(target);
+                let state = if target { "enabled" } else { "disabled" };
+                self.log(vec![
+                    "Dungeon Sweep is now ".into(),
+                    RichText::Color {
+                        text: state.to_string(),
+                        color: if target {
+                            ap::TextColor::Green
+                        } else {
+                            ap::TextColor::Red
+                        },
+                    },
+                    ".".into(),
+                ]);
+                true
+            }
 
             "!overridesave" => {
                 if matches!(self.should_process_save_file, ShouldProcess::AwaitingConfirmation) {
@@ -947,6 +990,7 @@ impl Core {
         }
 
         self.poll_flag_based_checks(save_data);
+        self.poll_dungeon_sweep(save_data);
 
         // The virtual-location passes all walk the checked-location set, which
         // grows into the thousands. Run them when the set actually changed, and
@@ -970,6 +1014,58 @@ impl Core {
             self.locations_sent = save_data.locations.len();
         }
         Ok(())
+    }
+
+    /// Whether Dungeon Sweep is on: the server's setting, unless the player
+    /// changed it with `!sweep`.
+    fn dungeon_sweep_enabled(&self) -> bool {
+        let server_enabled = self
+            .client()
+            .map(|client| client.slot_data().options.dungeon_sweep)
+            .unwrap_or(false);
+        self.dungeon_sweep.is_enabled(server_enabled)
+    }
+
+    /// Dungeon Sweep: when a dungeon's boss is beaten, marks every location in
+    /// that dungeon as checked. The caller's normal pass then reports them to
+    /// the server and grants any local items. Does nothing unless it's on
+    /// (see [Core::dungeon_sweep_enabled]).
+    fn poll_dungeon_sweep(&mut self, save_data: &mut SaveData) {
+        let menu_returns = SaveData::menu_returns();
+        if menu_returns != self.dungeon_sweep_menu_returns {
+            self.dungeon_sweep_menu_returns = menu_returns;
+            self.dungeon_sweep.reset();
+        }
+
+        if !self.dungeon_sweep_enabled() {
+            return;
+        }
+
+        if self.dungeon_sweep.needs_groups() {
+            if !self.ensure_location_flag_mapping() {
+                return;
+            }
+            if let Some(mapping) = &self.location_flag_mapping {
+                self.dungeon_sweep.build_groups(&mapping.location_flags);
+            }
+        }
+
+        let results = self
+            .dungeon_sweep
+            .poll(true, &mut save_data.locations, get_event_flag);
+        for result in results {
+            info!(
+                "Dungeon Sweep: {} boss beaten, {} new locations",
+                result.name, result.newly_checked
+            );
+            self.log(RichText::Color {
+                text: format!(
+                    "Dungeon Sweep: {} boss beaten ({} checks sent).",
+                    result.name, result.newly_checked
+                ),
+                color: ap::TextColor::Green,
+            });
+        }
     }
 
     /// Makes sure the server has told us which item is at each of this game's

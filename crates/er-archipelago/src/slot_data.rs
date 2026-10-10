@@ -42,6 +42,11 @@ pub struct Options {
     #[serde(deserialize_with = "int_to_bool")]
     #[allow(unused)]
     pub enable_dlc: bool,
+
+    /// Whether beating a dungeon's boss sends all of that dungeon's
+    /// locations. Off if the server doesn't mention it.
+    #[serde(default, deserialize_with = "int_to_bool")]
+    pub dungeon_sweep: bool,
 }
 
 /// Reads an integer as a bool.
