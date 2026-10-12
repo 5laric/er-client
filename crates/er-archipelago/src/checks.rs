@@ -18,6 +18,7 @@ use std::sync::{LazyLock, Mutex};
 use eldenring::cs::{ItemLotParam_enemy, ItemLotParam_map, ShopLineupParam, SoloParamRepository};
 use eldenring::param::ITEMLOT_PARAM_ST;
 use fromsoftware_shared::{FromStatic, Program};
+use ilhook::x64::{CallbackOption, HookFlags, Registers, hook_closure_jmp_back, hook_closure_retn};
 use shared::hook;
 use log::*;
 use pelite::pe::Pe;
@@ -111,10 +112,9 @@ fn set_event_value_override(flag: *const u32, value: u32, original: &dyn Fn()) {
     }
 }
 
-fn get_shop_menu_list_override(original: &dyn Fn() -> *mut *mut MenuGaitemList) -> *mut *mut MenuGaitemList {
-    let list_ptr = original();
+fn send_hints(list_ptr: *mut *mut MenuGaitemList) {
     let Some(params) = unsafe { SoloParamRepository::instance() }.ok() else {
-        return list_ptr;
+        return;
     };
     if let Some(list) = unsafe { list_ptr.as_ref().and_then(|l| l.as_ref()) } {
         // If this proves too unstable, iterating from shop start to end range is also possible.
@@ -126,6 +126,11 @@ fn get_shop_menu_list_override(original: &dyn Fn() -> *mut *mut MenuGaitemList) 
             }
         }
     }
+}
+
+fn get_shop_menu_list_override(original: &dyn Fn() -> *mut *mut MenuGaitemList) -> *mut *mut MenuGaitemList {
+    let list_ptr = original();
+    send_hints(list_ptr);
     list_ptr
 }
 
@@ -141,27 +146,82 @@ pub unsafe fn hook_flag_changes() {
         let set_event_flag = mem::transmute::<u64, SetEventFlagFn>(set_event_flag_addr);
         let set_event_value = mem::transmute::<u64, SetEventValueFn>(set_event_value_addr);
         let get_shop_menu_list = mem::transmute::<u64, GetShopMenuListFn>(get_shop_menu_list_addr);
-        // This uses winhook instead of ilhook as it provides slightly higher-level access
-        // to function args, is performant and thread-safe, etc. Both are fine to use together,
-        // but committing to one or the other would be fine too.
-        hook::hook(
-            set_event_flag,
-            |original| {
-                move |event_flag_man, flag, value|
-                    set_event_flag_override(flag, value, &|| original(event_flag_man, flag, value))
+        if true {
+            // TODO: This is horrendous but winhook crashes here, so deal with it for now.
+            let set_event_flag_callback = |reg: *mut Registers| {
+                let flag = (*reg).rdx as u32;
+                let value = (*reg).r8 as i32;
+                // The flag value is not checked immediately so this can be an entry hook
+                set_event_flag_override(flag, value, &|| {});
+            };
+            std::mem::forget(
+                hook_closure_jmp_back(
+                    set_event_flag as usize,
+                    set_event_flag_callback,
+                    CallbackOption::None,
+                    HookFlags::empty(),
+                )
+                .expect("Hooking SetEventFlag failed"),
+            );
+            let set_event_value_callback = |reg: *mut Registers| {
+                let flag = (*reg).rdx as *const u32;
+                let value = (*reg).r9 as u32;
+                // The flag value is not checked immediately so this can be an entry hook
+                set_event_value_override(flag, value, &|| {});
+            };
+            std::mem::forget(
+                hook_closure_jmp_back(
+                    set_event_value as usize,
+                    set_event_value_callback,
+                    CallbackOption::None,
+                    HookFlags::empty(),
+                )
+                .expect("Hooking SetEventValue failed"),
+            );
+            let get_shop_menu_list_callback = |reg: *mut Registers, original: usize| {
+                let original: GetShopMenuListFn = std::mem::transmute(original);
+                let list_ptr: *mut *mut MenuGaitemList = (*reg).rcx as *mut *mut MenuGaitemList;
+                let shop_type = (*reg).rdx as u8;
+                let start = (*reg).r8 as u32;
+                let end = (*reg).r9 as u32;
+                let mult = *(((*reg).rsp + 0x28) as *const f32);
+                original(list_ptr, shop_type, start, end, mult);
+                send_hints(list_ptr);
+                list_ptr as usize
+            };
+            std::mem::forget(
+                hook_closure_retn(
+                    get_shop_menu_list as usize,
+                    get_shop_menu_list_callback,
+                    CallbackOption::None,
+                    HookFlags::empty(),
+                )
+                .expect("Hooking GetShopMenuList failed"),
+            );
+        } else {
+            // This uses winhook instead of ilhook as it provides slightly higher-level access
+            // to function args, is performant and thread-safe, etc. Both are fine to use together,
+            // but committing to one or the other would be fine too.
+            // Update: No
+            hook::hook(
+                set_event_flag,
+                |original| {
+                    move |event_flag_man, flag, value|
+                        set_event_flag_override(flag, value, &|| original(event_flag_man, flag, value))
+                });
+            hook::hook(
+                set_event_value,
+                |original| {
+                    move |event_flag_man, flag, width, value|
+                        set_event_value_override(flag, value, &|| original(event_flag_man, flag, width, value))
+                });
+            hook::hook(
+                get_shop_menu_list,
+                |original| {
+                    move |list, shop_type, start, end, mult|
+                        get_shop_menu_list_override(&|| original(list, shop_type, start, end, mult))
             });
-        hook::hook(
-            set_event_value,
-            |original| {
-                move |event_flag_man, flag, width, value|
-                    set_event_value_override(flag, value, &|| original(event_flag_man, flag, width, value))
-            });
-        hook::hook(
-            get_shop_menu_list,
-            |original| {
-                move |list, shop_type, start, end, mult|
-                    get_shop_menu_list_override(&|| original(list, shop_type, start, end, mult))
-            });
+        }
     }
 }
 

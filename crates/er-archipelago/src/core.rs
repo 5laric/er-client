@@ -9,7 +9,6 @@ use eldenring::cs::*;
 use eldenring::param::EquipParamStructMut;
 use fromsoftware_shared::FromStatic;
 use log::*;
-#[cfg(debug_assertions)]
 use regex_macro::regex;
 
 use crate::checks;
