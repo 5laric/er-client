@@ -787,31 +787,13 @@ checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 [[package]]
 name = "eldenring"
 version = "0.13.0"
-source = "git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872#a3fb61d40a40cd8eb114b4e1a900390ce64b2872"
+source = "git+https://github.com/5laric/fromsoft-rs#e7f0ba66c5f5dee4d7bfc198995039fbf0b5d33a"
 dependencies = [
  "bitfield",
  "bitflags 2.13.2",
  "cxx-stl",
  "encoding_rs",
- "fromsoftware-shared 0.13.0 (git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872)",
- "glam",
- "num_enum",
- "pelite",
- "thiserror 1.0.69",
- "vtable-rs",
- "windows 0.61.3",
-]
-
-[[package]]
-name = "eldenring"
-version = "0.13.0"
-source = "git+https://github.com/ducksterisduckster-design/fromsoft-rs#ced3e8f69bc71e1cfedc81abffa9856e894a1a00"
-dependencies = [
- "bitfield",
- "bitflags 2.13.2",
- "cxx-stl",
- "encoding_rs",
- "fromsoftware-shared 0.13.0 (git+https://github.com/ducksterisduckster-design/fromsoft-rs)",
+ "fromsoftware-shared",
  "glam",
  "num_enum",
  "pelite",
@@ -823,12 +805,12 @@ dependencies = [
 [[package]]
 name = "eldenring-extra"
 version = "0.2.0"
-source = "git+https://github.com/ducksterisduckster-design/fromsoft-extra#b5f25572254fc3344b6082c8817590c8b96c2d7c"
+source = "git+https://github.com/5laric/fromsoft-extra#c3ef5d5eb335435e26d69a5b97985652ca6b60b9"
 dependencies = [
  "bitflags 2.13.2",
- "eldenring 0.13.0 (git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872)",
+ "eldenring",
  "fromsoftware-extra-shared",
- "fromsoftware-shared 0.13.0 (git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872)",
+ "fromsoftware-shared",
  "ilhook",
  "pelite",
  "thiserror 1.0.69",
@@ -862,9 +844,9 @@ dependencies = [
  "anyhow",
  "archipelago_rs",
  "bincode",
- "eldenring 0.13.0 (git+https://github.com/ducksterisduckster-design/fromsoft-rs)",
+ "eldenring",
  "eldenring-extra",
- "fromsoftware-shared 0.13.0 (git+https://github.com/ducksterisduckster-design/fromsoft-rs)",
+ "fromsoftware-shared",
  "hudhook",
  "ilhook",
  "log",
@@ -887,7 +869,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -968,7 +950,7 @@ dependencies = [
 [[package]]
 name = "fromsoftware-extra-shared"
 version = "0.2.0"
-source = "git+https://github.com/ducksterisduckster-design/fromsoft-extra#b5f25572254fc3344b6082c8817590c8b96c2d7c"
+source = "git+https://github.com/5laric/fromsoft-extra#c3ef5d5eb335435e26d69a5b97985652ca6b60b9"
 dependencies = [
  "ilhook",
 ]
@@ -976,27 +958,11 @@ dependencies = [
 [[package]]
 name = "fromsoftware-shared"
 version = "0.13.0"
-source = "git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872#a3fb61d40a40cd8eb114b4e1a900390ce64b2872"
+source = "git+https://github.com/5laric/fromsoft-rs#e7f0ba66c5f5dee4d7bfc198995039fbf0b5d33a"
 dependencies = [
  "bitflags 2.13.2",
  "from-singleton",
- "fromsoftware-shared-macros 0.13.0 (git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872)",
- "glam",
- "pelite",
- "thiserror 1.0.69",
- "undname",
- "vtable-rs",
- "windows 0.61.3",
-]
-
-[[package]]
-name = "fromsoftware-shared"
-version = "0.13.0"
-source = "git+https://github.com/ducksterisduckster-design/fromsoft-rs#ced3e8f69bc71e1cfedc81abffa9856e894a1a00"
-dependencies = [
- "bitflags 2.13.2",
- "from-singleton",
- "fromsoftware-shared-macros 0.13.0 (git+https://github.com/ducksterisduckster-design/fromsoft-rs)",
+ "fromsoftware-shared-macros",
  "glam",
  "pelite",
  "thiserror 1.0.69",
@@ -1008,18 +974,7 @@ dependencies = [
 [[package]]
 name = "fromsoftware-shared-macros"
 version = "0.13.0"
-source = "git+https://github.com/FantaTanked/fromsoft-rs?rev=a3fb61d40a40cd8eb114b4e1a900390ce64b2872#a3fb61d40a40cd8eb114b4e1a900390ce64b2872"
-dependencies = [
- "inflections",
- "proc-macro2",
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
-name = "fromsoftware-shared-macros"
-version = "0.13.0"
-source = "git+https://github.com/ducksterisduckster-design/fromsoft-rs#ced3e8f69bc71e1cfedc81abffa9856e894a1a00"
+source = "git+https://github.com/5laric/fromsoft-rs#e7f0ba66c5f5dee4d7bfc198995039fbf0b5d33a"
 dependencies = [
  "inflections",
  "proc-macro2",
@@ -2042,7 +1997,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2286,7 +2241,7 @@ dependencies = [
  "chrono",
  "clipboard-win",
  "closure-ffi",
- "fromsoftware-shared 0.13.0 (git+https://github.com/ducksterisduckster-design/fromsoft-rs)",
+ "fromsoftware-shared",
  "hudhook",
  "imgui",
  "imgui-sys",
@@ -2436,10 +2391,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.4.3",
+ "getrandom 0.3.4",
  "once_cell",
  "rustix",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -2825,7 +2780,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]

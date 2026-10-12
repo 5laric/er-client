@@ -11,6 +11,8 @@ pub use bundle::RvaBundle;
 const NAME: &str = "ELDEN RING™";
 const WW_VERSION: &str = "2.7.1.0";
 const LANG_ID_EN: u16 = 0x0009;
+const JP_VERSION: &str = "2.7.1.1";
+const LANG_ID_JP: u16 = 0x0011;
 
 /// Returns the RVA bundle for the current executable region and version.
 ///
@@ -63,20 +65,28 @@ fn detect_version_and_get_rvas(module: &PeView) -> RvaBundle {
         );
     }
 
-    // Require English version. Add Japanese version (0x0011) if RVAs are generated for those.
+    // English 2.7.1.0 or Japanese 2.7.1.1. Every RVA in this bundle is a function, and upstream
+    // fromsoftware-rs's generated WW 2.7.1.0 and JP 2.7.1.1 tables agree on all function
+    // addresses (they differ only in vtables), so Japanese shares the WW table.
     let lang_id_base = language.lang_id & 0x03FF;
-    if lang_id_base != LANG_ID_EN {
+    let expected = match lang_id_base {
+        LANG_ID_EN => WW_VERSION,
+        LANG_ID_JP => JP_VERSION,
+        _ => panic!(
+            "Expected executable language ID to be {:#04x} or {:#04x}, was {:#04x}",
+            LANG_ID_EN, LANG_ID_JP, lang_id_base
+        ),
+    };
+
+    if version != expected {
         panic!(
-            "Expected executable language ID to be {:#04x}, was {:#04x}",
-            LANG_ID_EN, lang_id_base
+            "Expected executable version \"{}\", was \"{}\"",
+            expected, &version
         );
     }
 
-    if version != WW_VERSION {
-        panic!(
-            "Expected executable version \"{}\", was \"{}\"",
-            WW_VERSION, &version
-        );
+    if lang_id_base == LANG_ID_JP {
+        log::warn!("Japanese executable {version}: using Worldwide 2.7.1.0 function addresses");
     }
 
     rva_ww::RVAS
